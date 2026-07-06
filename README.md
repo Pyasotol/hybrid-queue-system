@@ -1,6 +1,6 @@
 # 🔄 Hybrid Queue System
 
-> A unified engine that synchronizes **PHYSICAL_HARDWARE** and **DIGITAL_APP** queues — linking mechanical artifacts, rotating seasonal plates, and ritual entry workflows into a single coordinated system.
+> A unified engine that synchronizes **PHYSICAL_HARDWARE** and **DIGITAL_APP** queues — linking mechanical artifacts, rotating seasonal plates, and ritual entry workflows into a single coordinated engine.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status: Active](https://img.shields.io/badge/Status-Active-brightgreen)
@@ -10,9 +10,27 @@
 
 ## 📖 Overview
 
-The **Hybrid Queue System** bridges the physical and digital worlds through a shared queue architecture. Physical hardware components (rotating plates, gate mechanisms, tactile entry triggers) communicate in real time with a digital application layer that tracks state, manages workflows, and orchestrates ritual entry sequences.
+The **Hybrid Queue System** bridges the physical and digital worlds through a shared queue architecture. Physical hardware components (rotating plates, gate mechanisms, tactile entry triggers) communicate with a digital application layer (mobile/web apps, remote controllers) using a unified queue and workflow engine.
 
-Whether a participant approaches a physical gate or interacts with the digital app, both signals enter the same unified queue — processed by a single workflow engine that maintains consistency, fairness, and ritual integrity across both domains.
+Whether a participant approaches a physical gate or interacts with the digital app, both signals enter the same unified queue — processed by a single workflow engine that maintains consistency, fairness, and auditability across both domains.
+
+This repository contains the core engine, a hardware integration layer, and example app bindings to demonstrate how physical and digital events can be synchronized and orchestrated.
+
+---
+
+## 📌 Table of Contents
+
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Components](#-components)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [Development](#-development)
+- [Testing](#-testing)
+- [Roadmap](#-future-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
@@ -113,27 +131,130 @@ The central orchestration layer that processes both queues:
 
 ## 🚀 Installation
 
-> ⚠️ **Work in progress.** Full installation instructions will be published with the v1.0 release.
+This project supports Node.js (TypeScript) for the core engine. Python bindings and tooling may be added in future releases.
+
+> ⚠️ Note: hardware-specific drivers and adapters are platform-dependent. See `docs/hardware-setup.md` for hardware integration notes.
+
+### Prerequisites
+
+- Node.js >= 18
+- npm (or yarn)
+- An MQTT broker or supported message bus (e.g., Mosquitto, EMQX)
+- If using hardware: the appropriate device drivers and access to device interfaces (GPIO, serial, I2C)
+
+### Local development
 
 ```bash
 # Clone the repository
 git clone https://github.com/Pyasotol/hybrid-queue-system.git
 cd hybrid-queue-system
 
-# Install dependencies (details TBD)
-npm install   # or pip install -r requirements.txt
+# Install dependencies
+npm install
 
-# Copy environment config
+# Copy and edit environment config
 cp .env.example .env
+# Edit .env to configure message bus, hardware adapter, and credentials
 
-# Start the system
-npm run start   # or python main.py
+# Build (TypeScript)
+npm run build
+
+# Start in dev mode (watches files)
+npm run dev
+
+# Or run directly with ts-node (for development)
+npm run start:dev
 ```
 
-**Prerequisites (planned):**
-- Node.js ≥ 18 or Python ≥ 3.11
-- Hardware interface drivers (see `/docs/hardware-setup.md`)
-- MQTT broker or equivalent message bus
+### Docker (recommended for reproducible environments)
+
+A container image is planned — an example docker-compose setup to run the app with a local MQTT broker:
+
+```yaml
+version: '3.8'
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - '1883:1883'
+
+  app:
+    build: .
+    environment:
+      - MQTT_URL=mqtt://mqtt:1883
+    depends_on:
+      - mqtt
+    ports:
+      - '3000:3000'
+```
+
+---
+
+## ⚙️ Configuration
+
+Create a `.env` file (see `.env.example`) and set at least the following variables:
+
+- MQTT_URL=mqtt://localhost:1883
+- NODE_ENV=development
+- PORT=3000
+- HARDWARE_ADAPTER=simulator # or gpio, serial, usb
+
+Environment-specific configuration can be loaded using `config/*` or feature flags.
+
+---
+
+## 📚 Usage
+
+The core engine exposes:
+
+- A queue processor that accepts events on two channels: `PHYSICAL_HARDWARE` and `DIGITAL_APP`.
+- A REST API (planned) and an event socket for monitoring.
+- A rules engine that loads JSON/YAML rule files from `/config/rules/`.
+
+Example: pushing a digital event via the SDK (pseudo-code)
+
+```ts
+import { QueueClient } from 'hybrid-queue-sdk';
+
+const client = new QueueClient({ url: process.env.MQTT_URL });
+
+await client.connect();
+
+await client.publish('DIGITAL_APP', {
+  type: 'USER_REQUEST',
+  payload: { userId: 'abc', action: 'request_entry' }
+});
+```
+
+Watch the logs or the audit store to see how the workflow engine schedules and resolves the request.
+
+---
+
+## 🔧 Development
+
+- The project uses TypeScript. Source code lives in `src/` and compiled output goes to `dist/`.
+- Rules live in `config/rules/` and are hot-reloadable in dev mode.
+- Hardware adapters implement the `IHardwareAdapter` interface (see `src/adapters/`), allowing simulator and real-device implementations.
+
+Recommended commands:
+
+- npm run lint
+- npm run build
+- npm run dev
+- npm run test
+
+---
+
+## ✅ Testing
+
+Unit and integration tests should cover:
+
+- Queue ordering guarantees and prioritization
+- Workflow rule resolution and conflict scenarios
+- Hardware adapter simulations
+- Retry and backoff logic
+
+A test runner (Jest) and example test suites will be added under `__tests__/` in v0.2.
 
 ---
 
@@ -155,13 +276,20 @@ npm run start   # or python main.py
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please open an issue first to discuss proposed changes. Pull requests should target the `dev` branch.
+Contributions are welcome! To make it easy for maintainers to review and accept changes, please follow this process:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes (`git commit -m 'Add my feature'`)
-4. Push to the branch (`git push origin feature/my-feature`)
-5. Open a Pull Request
+1. Open an issue to discuss significant changes or new features.
+2. Fork the repository.
+3. Create a feature branch named `feature/<short-description>`.
+4. Commit changes with clear messages and tests when applicable.
+5. Push to your fork and open a Pull Request targeting the `dev` branch.
+
+Guidelines:
+
+- Write tests for new behavior where possible.
+- Keep changes small and focused.
+- Update documentation when adding or changing features.
+- Ensure CI passes (lint, build, test) before requesting review.
 
 ---
 
